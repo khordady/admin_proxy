@@ -1,24 +1,38 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"github.com/gorilla/websocket"
 	"log"
 	"net"
 	"net/url"
+	"os"
+	"time"
 )
 
 var server = "192.168.1.105"
 var address = "/websocket"
-var token = "1234"
-var org = "4567"
+var token *string
+var org *string
 
 func main() {
+	log.SetOutput(os.Stdout)
+
+	token = flag.String("token", "", "The authentication token")
+	org = flag.String("org", "", "The organization name")
+
+	// Parse the flags
+	flag.Parse()
+
+	// Check if required arguments are provided
+	if *token == "" || *org == "" {
+		os.Exit(1)
+	}
+
 	go makeConnection("20241")
 	go makeConnection("20242")
-	go makeConnection("3309")
-
-	select {}
+	makeConnection("3309")
 }
 
 func makeConnection(local_port string) {
@@ -29,18 +43,22 @@ func makeConnection(local_port string) {
 		query.Set("port", local_port)
 		vpsURL.RawQuery = query.Encode()
 
+		fmt.Println("Try Connecting WEB Port:", local_port)
+
 		ws, _, err := websocket.DefaultDialer.Dial(vpsURL.String(), nil)
 		if err != nil || ws == nil {
 			log.Printf("Failed to connect to VPS: %v", err)
+			time.Sleep(3 * time.Second)
 			continue
 		}
 
 		fmt.Println("Connected WEB Port:", local_port)
 
-		err = ws.WriteMessage(websocket.BinaryMessage, []byte(`{"Token":"`+token+`","ORG":"`+org+`"}`))
+		err = ws.WriteMessage(websocket.BinaryMessage, []byte(`{"Token":"`+*token+`","ORG":"`+*org+`"}`))
 		if err != nil {
 			log.Printf("Failed to send handshake: %v", err)
 			ws.Close()
+			time.Sleep(3 * time.Second)
 			continue
 		}
 
@@ -51,6 +69,7 @@ func makeConnection(local_port string) {
 		if err != nil {
 			log.Printf("WebSocket connection closed: %v", err)
 			ws.Close()
+			time.Sleep(3 * time.Second)
 			continue
 		}
 
@@ -69,6 +88,7 @@ func makeConnection(local_port string) {
 				log.Printf("Failed to write data to TCP: %v", err)
 				ws.Close()
 				tcpConn.Close()
+				time.Sleep(3 * time.Second)
 				continue
 			}
 		}
@@ -92,15 +112,16 @@ func handleConnection(tcpConn net.Conn, ws *websocket.Conn) {
 		for {
 			// Read from TCP connection
 			n, err := tcpConn.Read(buffer)
+			if n > 0 {
+				// Forward to WebSocket
+				err = ws.WriteMessage(websocket.BinaryMessage, buffer[:n])
+				if err != nil {
+					log.Printf("Failed to send data to WebSocket: %v", err)
+					return
+				}
+			}
 			if err != nil {
 				log.Printf("TCP connection closed: %v", err)
-				return
-			}
-
-			// Forward to WebSocket
-			err = ws.WriteMessage(websocket.BinaryMessage, buffer[:n])
-			if err != nil {
-				log.Printf("Failed to send data to WebSocket: %v", err)
 				return
 			}
 		}
