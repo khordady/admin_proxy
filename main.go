@@ -11,8 +11,13 @@ import (
 	"time"
 )
 
-var server = "192.168.1.105"
+// var server = "192.168.1.105:9090"
+var server = "expanel.app"
 var address = "/websocket"
+
+// var wss = "ws"
+var wss = "wss"
+
 var token *string
 var org *string
 
@@ -38,7 +43,7 @@ func main() {
 func makeConnection(local_port string) {
 	for {
 		// Establish WebSocket connection to VPS
-		vpsURL := url.URL{Scheme: "ws", Host: server + ":9090", Path: address + "/admin"}
+		vpsURL := url.URL{Scheme: wss, Host: server, Path: address + "/admin"}
 		query := vpsURL.Query()
 		query.Set("port", local_port)
 		vpsURL.RawQuery = query.Encode()
