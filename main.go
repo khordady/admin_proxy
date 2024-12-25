@@ -11,12 +11,14 @@ import (
 	"time"
 )
 
-// var server = "192.168.1.105:9090"
-var server = "expanel.app"
+var server = "192.168.1.105:9090"
+
+// var server = "expanel.app"
 var address = "/websocket"
 
-// var wss = "ws"
-var wss = "wss"
+var wss = "ws"
+
+//var wss = "wss"
 
 var token *string
 var org *string
@@ -52,7 +54,7 @@ func makeConnection(local_port string) {
 
 		ws, _, err := websocket.DefaultDialer.Dial(vpsURL.String(), nil)
 		if err != nil || ws == nil {
-			log.Printf("Failed to connect to VPS: %v", err)
+			fmt.Printf("Failed to connect to VPS: %v\n", err)
 			time.Sleep(3 * time.Second)
 			continue
 		}
@@ -61,7 +63,7 @@ func makeConnection(local_port string) {
 
 		err = ws.WriteMessage(websocket.BinaryMessage, []byte(`{"Token":"`+*token+`","ORG":"`+*org+`"}`))
 		if err != nil {
-			log.Printf("Failed to send handshake: %v", err)
+			fmt.Printf("Failed to send handshake: %v\n", err)
 			ws.Close()
 			time.Sleep(3 * time.Second)
 			continue
@@ -72,7 +74,7 @@ func makeConnection(local_port string) {
 		//read RND and ORG from server and send it to admin
 		_, message, err := ws.ReadMessage()
 		if err != nil {
-			log.Printf("WebSocket connection closed: %v", err)
+			fmt.Printf("WebSocket connection closed: %v\n", err)
 			ws.Close()
 			time.Sleep(3 * time.Second)
 			continue
@@ -82,7 +84,7 @@ func makeConnection(local_port string) {
 
 		tcpConn, err := net.Dial("tcp", "localhost:"+local_port)
 		if err != nil {
-			log.Printf("Failed to connect to message local_port: %v", err)
+			fmt.Printf("Failed to connect to message local_port: %v\n", err)
 		}
 
 		fmt.Println("Connected TCP Port:", local_port)
@@ -90,7 +92,7 @@ func makeConnection(local_port string) {
 		if local_port != "3309" {
 			_, err = tcpConn.Write(message)
 			if err != nil {
-				log.Printf("Failed to write data to TCP: %v", err)
+				fmt.Printf("Failed to write data to TCP: %v\n", err)
 				ws.Close()
 				tcpConn.Close()
 				time.Sleep(3 * time.Second)
@@ -121,12 +123,12 @@ func handleConnection(tcpConn net.Conn, ws *websocket.Conn) {
 				// Forward to WebSocket
 				err = ws.WriteMessage(websocket.BinaryMessage, buffer[:n])
 				if err != nil {
-					log.Printf("Failed to send data to WebSocket: %v", err)
+					fmt.Printf("Failed to send data to WebSocket: %v\n", err)
 					return
 				}
 			}
 			if err != nil {
-				log.Printf("TCP connection closed: %v", err)
+				fmt.Printf("TCP connection closed: %v\n", err)
 				return
 			}
 		}
@@ -136,15 +138,16 @@ func handleConnection(tcpConn net.Conn, ws *websocket.Conn) {
 	for {
 		// Read from WebSocket
 		_, message, err := ws.ReadMessage()
-		if err != nil {
-			log.Printf("WebSocket connection closed: %v", err)
-			return
+		if message != nil {
+			// Write to TCP connection
+			_, err = tcpConn.Write(message)
+			if err != nil {
+				fmt.Printf("Failed to write data to TCP: %v\n", err)
+				return
+			}
 		}
-
-		// Write to TCP connection
-		_, err = tcpConn.Write(message)
 		if err != nil {
-			log.Printf("Failed to write data to TCP: %v", err)
+			fmt.Printf("WebSocket connection closed: %v\n", err)
 			return
 		}
 	}
