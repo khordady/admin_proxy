@@ -11,14 +11,12 @@ import (
 	"time"
 )
 
-var server = "192.168.1.105:9090"
-
-// var server = "expanel.app"
+// var server = "192.168.1.104:9090"
+var server = "expanel.app"
 var address = "/websocket"
 
-var wss = "ws"
-
-//var wss = "wss"
+// var wss = "ws"
+var wss = "wss"
 
 var token *string
 var org *string
